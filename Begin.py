@@ -25,6 +25,6 @@ def main():
     CLIENTS = data['clients']
 
     if SETTINGS['logging']:
-        sys.stdout = open("./pic/"+SETTINGS['log_file'],'wt')
+        sys.stdout = open("./data/"+SETTINGS['log_file'],'wt')
     else:
         sys.stdout = open(os.devnull, 'w')
