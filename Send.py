@@ -5,10 +5,11 @@ import Begin
 import os
 import base64
 import subprocess
+import glob
 
 app = Flask(__name__)
 
-# MySQL 数据库连接配置 该数据库后期给定，该数据库为调试数据
+# MySQL 数据库连接配置
 MYSQL_HOST = '10.193.107.128'
 MYSQL_PORT = 3306
 MYSQL_USER = 'root'
@@ -85,7 +86,7 @@ def generate_data():
         # Begin.main() 这个方法弃掉 容易出现内存泄漏！
         subprocess.run(["python", "Begin.py"])
 
-        #将pic中的output.png和txt存入数据库：
+        #将data中的output.png和txt存入数据库：
         with connection.cursor() as cursor:
             # 创建表
             create_table_query = """
@@ -100,7 +101,7 @@ def generate_data():
             cursor.execute(create_table_query)
             current_time_end = datetime.now()
             #directory为输出路径
-            directory = 'pic'
+            directory = 'data'
             files = os.listdir(directory)
             for file in files:
                 file_path = os.path.join(directory, file)
@@ -112,7 +113,17 @@ def generate_data():
                         cursor.execute(insert_query, (current_time_begin, current_time_end, file, file_content, my_project_name))
                     connection.commit()
 
+            for file in glob.glob("./data/*"):
+                os.remove(file)
+                print("Deleted " + str(file))
+            for file in glob.glob("./pic/*"):
+                os.remove(file)
+                print("Deleted " + str(file))
         return jsonify({'message': 'JSON data stored in file and MySQL successfully'}), 200
+
+
+
+
 
 
     except Exception as e:
