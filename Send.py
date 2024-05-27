@@ -10,11 +10,11 @@ import glob
 app = Flask(__name__)
 
 # MySQL 数据库连接配置
-MYSQL_HOST = '10.193.107.128'
-MYSQL_PORT = 3306
+MYSQL_HOST = 'w6109r6604.goho.co'
+MYSQL_PORT = 10195
 MYSQL_USER = 'root'
-MYSQL_PASSWORD = '123123'
-MYSQL_DB = 'view_5g_data_product'
+MYSQL_PASSWORD = 'password'
+MYSQL_DB = 'data'
 
 #创建自己的项目名称
 my_project_name = "slice"
