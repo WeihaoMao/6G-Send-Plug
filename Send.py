@@ -10,14 +10,14 @@ import glob
 app = Flask(__name__)
 
 # MySQL 数据库连接配置
-MYSQL_HOST = 'w6109r6604.goho.co'
-MYSQL_PORT = 10195
+MYSQL_HOST = '10.193.166.100'
+MYSQL_PORT = 3306
 MYSQL_USER = 'root'
-MYSQL_PASSWORD = 'password'
-MYSQL_DB = 'data'
+MYSQL_PASSWORD = '123123'
+MYSQL_DB = 'view_5g_data_product'
 
 #创建自己的项目名称
-my_project_name = "slice"
+my_project_name = "slice2"
 
 # 建立 MySQL 数据库连接
 connection = pymysql.connect(host=MYSQL_HOST,
@@ -120,9 +120,6 @@ def generate_data():
                 os.remove(file)
                 print("Deleted " + str(file))
         return jsonify({'message': 'JSON data stored in file and MySQL successfully'}), 200
-
-
-
 
 
 
