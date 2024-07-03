@@ -1,5 +1,3 @@
-//用于验证base64编码是否正确
-
 import os
 import base64
 import pymysql.cursors
@@ -10,7 +8,7 @@ import pymysql.cursors
 # MYSQL_USER = 'root'
 # MYSQL_PASSWORD = 'password'
 # MYSQL_DB = 'data'
-MYSQL_HOST = '10.193.107.128'
+MYSQL_HOST = '10.193.166.100'
 MYSQL_PORT = 3306
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = '123123'
@@ -28,21 +26,24 @@ connection = pymysql.connect(host=MYSQL_HOST,
 
 def retrieve_files_from_db(directory):
     with connection.cursor() as cursor:
-        select_query = "SELECT filename, content FROM program_output"
-        cursor.execute(select_query)
-        files = cursor.fetchall()
+        #输出哪个
+        filename="1.mp4"
+        select_query = "SELECT filename, content FROM program_output WHERE filename=%s"
+        cursor.execute(select_query, (filename,))
+        result = cursor.fetchone()  # 获取查询结果
+        if result:
+            fetched_filename = result['filename']
+            fetched_content = result['content']
+            print(f"Fetched filename: {fetched_filename}, content: {fetched_content}")
+        else:
+            print("No result found for the given filename.")
+        # 解码Base64编码的内容
+        decoded_content = base64.b64decode(fetched_content)
 
-        for file in files:
-            filename = file['filename']
-            content = file['content']
-
-            # 解码Base64编码的内容
-            decoded_content = base64.b64decode(content)
-
-            # 写入文件
-            file_path = os.path.join(directory, filename)
-            with open(file_path, 'wb') as f:
-                f.write(decoded_content)
+        # 写入文件
+        file_path = os.path.join(directory, filename)
+        with open(file_path, 'wb') as f:
+            f.write(decoded_content)
 
     print("Files retrieved successfully!")
 
