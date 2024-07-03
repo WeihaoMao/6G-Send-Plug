@@ -17,7 +17,7 @@ MYSQL_PASSWORD = '123123'
 MYSQL_DB = 'view_5g_data_product'
 
 #创建自己的项目名称
-my_project_name = "slice2"
+my_project_name = "video"
 
 # 建立 MySQL 数据库连接
 connection = pymysql.connect(host=MYSQL_HOST,
@@ -46,7 +46,7 @@ def save_files_in_directory_to_db(directory):
             connection.commit()
 
 
-@app.route('/generate_data', methods=['POST'])
+@app.route('/post_json', methods=['POST'])
 def generate_data():
     try:
         data = request.get_json()  # 获取 POST 请求中的 JSON 数据
@@ -87,44 +87,79 @@ def generate_data():
         subprocess.run(["python", "Begin.py"])
 
         #将data中的output.png和txt存入数据库：
-        with connection.cursor() as cursor:
-            # 创建表
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS program_output (
-                program_begin_time TEXT,
-                program_end_time TEXT,
-                filename TEXT,
-                content LONGTEXT,
-                name VARCHAR(255)
-            )
-            """
-            cursor.execute(create_table_query)
-            current_time_end = datetime.now()
-            #directory为输出路径
-            directory = 'data'
-            files = os.listdir(directory)
-            for file in files:
-                file_path = os.path.join(directory, file)
-                if os.path.isfile(file_path):
-                    with open(file_path, 'rb') as f:
-                        file_content = base64.b64encode(f.read()).decode('utf-8')
-                    with connection.cursor() as cursor:
-                        insert_query = "INSERT INTO program_output (program_begin_time, program_end_time, filename, content, name) VALUES (%s, %s, %s, %s, %s)"
-                        cursor.execute(insert_query, (current_time_begin, current_time_end, file, file_content, my_project_name))
-                    connection.commit()
+        current_time_end = datetime.now()
+        #directory为输出路径
+        directory = 'data'
+        files = os.listdir(directory)
+        for file in files:
+            file_path = os.path.join(directory, file)
+            if os.path.isfile(file_path):
+                with open(file_path, 'rb') as f:
+                    file_content = base64.b64encode(f.read()).decode('utf-8')
+                with connection.cursor() as cursor:
+                    insert_query = "INSERT INTO program_output (program_begin_time, program_end_time, filename, content, name) VALUES (%s, %s, %s, %s, %s)"
+                    cursor.execute(insert_query, (current_time_begin, current_time_end, file, file_content, my_project_name))
+                connection.commit()
 
-            for file in glob.glob("./data/*"):
-                os.remove(file)
-                print("Deleted " + str(file))
-            for file in glob.glob("./pic/*"):
-                os.remove(file)
-                print("Deleted " + str(file))
+            # for file in glob.glob("./data/*"):
+            #     os.remove(file)
+            #     print("Deleted " + str(file))
+            # for file in glob.glob("./pic/*"):
+            #     os.remove(file)
+            #     print("Deleted " + str(file))
         return jsonify({'message': 'JSON data stored in file and MySQL successfully'}), 200
-
-
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/post_file', methods=['POST'])
+def upload_video():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    # 添加到pic文件下进行使用
+
+    filename = file.filename
+    filepath = os.path.join('pic', filename)
+    file.save(filepath)
+    with connection.cursor() as cursor:
+        from datetime import datetime
+
+        # 获取当前时间
+        current_time_begin = datetime.now()
+
+        # 插入数据
+        insert_query = "INSERT INTO program (program_setting_time, data, name) VALUES (%s, %s, %s)"
+        cursor.execute(insert_query, (current_time_begin, filename, my_project_name))
+        connection.commit()
+
+    subprocess.run(["python", "video.py"])
+
+    try:
+        current_time_end = datetime.now()
+        # directory为输出路径
+        directory = 'data'
+        files = os.listdir(directory)
+        for file in files:
+            file_path = os.path.join(directory, file)
+            if os.path.isfile(file_path):
+                with open(file_path, 'rb') as f:
+                    file_content = base64.b64encode(f.read()).decode('utf-8')
+                with connection.cursor() as cursor:
+                    insert_query = "INSERT INTO program_output (program_begin_time, program_end_time, filename, content, name) VALUES (%s, %s, %s, %s, %s)"
+                    cursor.execute(insert_query,
+                                   (current_time_begin, current_time_end, file, file_content, my_project_name))
+                connection.commit()
+        return jsonify({'success': 'File uploaded and filename stored in database'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 
 if __name__ == '__main__':
