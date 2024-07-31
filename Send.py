@@ -176,13 +176,13 @@ def generate_data():
                     cursor.execute(insert_query, (current_time_begin, current_time_end, file, file_content, my_project_name))
                 print("&&&&&向数据库存入"+file)
                 connection.commit()
-            if debug:
-                for file in glob.glob("./data/*"):
-                    os.remove(file)
-                    print("Deleted " + str(file))
-                for file in glob.glob("./pic/*"):
-                    os.remove(file)
-                    print("Deleted " + str(file))
+        if debug:
+            for file in glob.glob("./data/*"):
+                os.remove(file)
+                print("Deleted " + str(file))
+            for file in glob.glob("./pic/*"):
+                os.remove(file)
+                print("Deleted " + str(file))
         with connection.cursor() as cursor:
             update_query = "UPDATE program_log SET isEnd=1 WHERE program_begin_time = %s"
             cursor.execute(update_query, (current_time_begin,))
