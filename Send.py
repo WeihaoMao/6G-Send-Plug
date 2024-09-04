@@ -30,14 +30,14 @@ logging.basicConfig(
 runningThread = True
 
 # MySQL 数据库连接配置
-MYSQL_HOST = '10.193.166.100'
+MYSQL_HOST = '10.193.208.150'
 MYSQL_PORT = 3306
 MYSQL_USER = 'root'
 MYSQL_PASSWORD = '123123'
 MYSQL_DB = 'view_5g_data_product'
 
 #创建自己的项目名称
-my_project_name = "slice202407"
+my_project_name = "slice20240904"
 
 # 建立 MySQL 数据库连接
 connection = pymysql.connect(host=MYSQL_HOST,
@@ -117,8 +117,8 @@ def generate_data():
             json.dump(data, json_file, ensure_ascii=False, indent=4)
 
         from datetime import datetime
-        # 获取当前时间
         current_time_begin = datetime.now()
+
         # 将 JSON 数据写入 MySQL 数据库
         with connection.cursor() as cursor:
             # 插入数据
@@ -127,70 +127,77 @@ def generate_data():
 
             insert_log_query = "INSERT INTO program_log (program_begin_time, log, isEnd) VALUES (%s, %s, %s)"
             cursor.execute(insert_log_query, (current_time_begin, "NULL", 0))
-        # 提交更改
         connection.commit()
 
-        # ！！调用主程序位置：
-        # Begin.main() 这个方法弃掉 容易出现内存泄漏！
-        with open('./app.log', 'w') as file:
-            file.truncate(0)
-        # 将 stdout 和 stderr 重定向到 LoggingIOWrapper
-        # 将 stdout 和 stderr 重定向到 LoggingIOWrapper
-        with open('./app.log', 'w', encoding='utf-8', newline='') as log_file:
-            wrapper = LoggingIOWrapper(log_file, encoding='utf-8')
-            proc = subprocess.Popen(["python", "Begin.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                    encoding='utf-8')
-            global runningThread
-            runningThread = True
-            # 创建线程实时读取子进程的输出并写入日志文件
-            stdout_thread = Thread(target=stream_output, args=(proc.stdout, wrapper))
-            stderr_thread = Thread(target=stream_output, args=(proc.stderr, wrapper))
-            stdout_thread.start()
-            stderr_thread.start()
+        # 立即返回 current_time_begin
+        response = jsonify({'current_time_begin': str(current_time_begin)})
 
-            # 创建线程定期更新
-            update_log_thread = Thread(target=update_log, args=(current_time_begin,))
-            update_log_thread.start()
+        # 创建后台线程处理耗时任务
+        def background_task():
+            try:
+                with open('./app.log', 'w') as file:
+                    file.truncate(0)
 
-            # 等待子进程完成
-            proc.wait()
+                with open('./app.log', 'w', encoding='utf-8', newline='') as log_file:
+                    wrapper = LoggingIOWrapper(log_file, encoding='utf-8')
+                    proc = subprocess.Popen(["python", "Begin.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                            text=True,
+                                            encoding='utf-8')
+                    global runningThread
+                    runningThread = True
 
-            runningThread = False
-            # 等待线程结束,必须得加，否则子进程会延时完成，影响主进程操作数据库
-            stdout_thread.join()
-            stderr_thread.join()
-            update_log_thread.join()
+                    stdout_thread = Thread(target=stream_output, args=(proc.stdout, wrapper))
+                    stderr_thread = Thread(target=stream_output, args=(proc.stderr, wrapper))
+                    stdout_thread.start()
+                    stderr_thread.start()
 
-        #将data中的output.png和txt存入数据库：
-        current_time_end = datetime.now()
-        #directory为输出路径
-        directory = 'data'
-        files = os.listdir(directory)
-        for file in files:
-            file_path = os.path.join(directory, file)
-            if os.path.isfile(file_path):
-                with open(file_path, 'rb') as f:
-                    file_content = base64.b64encode(f.read()).decode('utf-8')
+                    update_log_thread = Thread(target=update_log, args=(current_time_begin,))
+                    update_log_thread.start()
+
+                    proc.wait()
+
+                    runningThread = False
+                    stdout_thread.join()
+                    stderr_thread.join()
+                    update_log_thread.join()
+
+                current_time_end = datetime.now()
+                directory = 'data'
+                files = os.listdir(directory)
+                for file in files:
+                    file_path = os.path.join(directory, file)
+                    if os.path.isfile(file_path):
+                        with open(file_path, 'rb') as f:
+                            file_content = base64.b64encode(f.read()).decode('utf-8')
+                        with connection.cursor() as cursor:
+                            insert_query = "INSERT INTO program_output (program_begin_time, program_end_time, filename, content, name) VALUES (%s, %s, %s, %s, %s)"
+                            cursor.execute(insert_query,
+                                           (current_time_begin, current_time_end, file, file_content, my_project_name))
+                        connection.commit()
+
+                if debug:
+                    for file in glob.glob("./data/*"):
+                        os.remove(file)
+                    for file in glob.glob("./pic/*"):
+                        os.remove(file)
+
                 with connection.cursor() as cursor:
-                    insert_query = "INSERT INTO program_output (program_begin_time, program_end_time, filename, content, name) VALUES (%s, %s, %s, %s, %s)"
-                    cursor.execute(insert_query, (current_time_begin, current_time_end, file, file_content, my_project_name))
-                print("&&&&&向数据库存入"+file)
+                    update_query = "UPDATE program_log SET isEnd=1 WHERE program_begin_time = %s"
+                    cursor.execute(update_query, (current_time_begin,))
                 connection.commit()
-        if debug:
-            for file in glob.glob("./data/*"):
-                os.remove(file)
-                print("Deleted " + str(file))
-            for file in glob.glob("./pic/*"):
-                os.remove(file)
-                print("Deleted " + str(file))
-        with connection.cursor() as cursor:
-            update_query = "UPDATE program_log SET isEnd=1 WHERE program_begin_time = %s"
-            cursor.execute(update_query, (current_time_begin,))
-        connection.commit()
-        return jsonify({'message': 'JSON data stored in file and MySQL successfully'}), 200
+            except Exception as e:
+                logging.error(f"Background task error: {e}")
+
+        # 启动后台线程
+        thread = Thread(target=background_task)
+        thread.start()
+
+        # 返回响应给前端
+        return response, 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/post_file', methods=['POST'])
